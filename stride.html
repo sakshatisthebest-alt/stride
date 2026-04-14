@@ -1,0 +1,1336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Stride">
+<meta name="theme-color" content="#0a0a0a">
+<title>Stride</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+<style>
+:root {
+  --bg: #080808;
+  --surface: #111111;
+  --surface2: #1a1a1a;
+  --surface3: #222222;
+  --border: #2a2a2a;
+  --text: #f0f0f0;
+  --text2: #888888;
+  --text3: #444444;
+  --accent: #c8f537;
+  --accent2: #a8d420;
+  --red: #ff4545;
+  --orange: #ff8c42;
+  --blue: #4a9eff;
+  --purple: #b06aff;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bot: env(safe-area-inset-bottom, 0px);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Syne', sans-serif;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ─── APP SHELL ─────────────────────────────────── */
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  height: -webkit-fill-available;
+  padding-top: var(--safe-top);
+}
+
+/* ─── PAGES ─────────────────────────────────────── */
+.page {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  display: none;
+  padding-bottom: calc(80px + var(--safe-bot));
+}
+.page.active { display: block; }
+#page-track { padding-bottom: 0; }
+
+/* ─── NAV ────────────────────────────────────────── */
+#nav {
+  position: fixed;
+  bottom: 0;
+  left: 0; right: 0;
+  z-index: 1000;
+  background: rgba(8,8,8,0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border);
+  padding-bottom: var(--safe-bot);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding-top: 10px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.nav-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 16px;
+  border: none;
+  background: none;
+  color: var(--text3);
+  font-family: 'Syne', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 0.2s;
+  border-radius: 12px;
+  flex: 1;
+}
+.nav-btn svg { width: 22px; height: 22px; stroke-width: 1.8; }
+.nav-btn.active { color: var(--accent); }
+.nav-btn.active svg { filter: drop-shadow(0 0 6px var(--accent)); }
+
+/* ─── HEADER ─────────────────────────────────────── */
+.page-header {
+  padding: 24px 20px 16px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.page-title {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.page-sub {
+  font-size: 12px;
+  color: var(--text2);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ─── CARDS ──────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 20px;
+  margin: 0 16px 12px;
+}
+.card-sm {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+/* ─── TRACK PAGE ─────────────────────────────────── */
+#page-track {
+  display: none;
+  flex-direction: column;
+  height: 100%;
+  padding-bottom: 0;
+}
+#page-track.active { display: flex; }
+
+#map-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+#map {
+  width: 100%;
+  height: 100%;
+  background: #111;
+}
+
+/* Leaflet dark overrides */
+.leaflet-tile-pane { filter: brightness(0.85) saturate(0.7) contrast(1.1); }
+.leaflet-control-zoom { display: none; }
+.leaflet-control-attribution { display: none; }
+
+/* HUD overlay */
+#hud {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  z-index: 500;
+  pointer-events: none;
+}
+
+#stats-bar {
+  display: grid;
+  grid-template-columns: repeat(4,1fr);
+  gap: 8px;
+  padding: 16px;
+  background: linear-gradient(to bottom, rgba(8,8,8,0.95) 70%, transparent);
+}
+
+.stat-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.stat-val {
+  font-family: 'DM Mono', monospace;
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--accent);
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.stat-lbl {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* Controls */
+#controls-panel {
+  background: linear-gradient(to top, rgba(8,8,8,0.98) 80%, transparent);
+  padding: 20px 20px calc(80px + var(--safe-bot) + 10px);
+}
+
+#session-status {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text2);
+  margin-bottom: 16px;
+}
+#session-status span {
+  color: var(--accent);
+  font-family: 'DM Mono', monospace;
+}
+
+.controls-row {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  align-items: center;
+}
+
+.btn-main {
+  width: 72px; height: 72px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Syne', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.btn-main::after {
+  content:'';
+  position:absolute;
+  inset:0;
+  border-radius:50%;
+  background: rgba(255,255,255,0.1);
+  opacity:0;
+  transition:opacity 0.15s;
+}
+.btn-main:active::after { opacity:1; }
+
+.btn-go {
+  background: var(--accent);
+  color: #000;
+  width: 80px; height: 80px;
+  box-shadow: 0 0 30px rgba(200,245,55,0.3);
+}
+.btn-go svg { width:30px;height:30px;stroke:#000;fill:none;stroke-width:2.5; }
+
+.btn-pause {
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.btn-pause svg { width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2; }
+
+.btn-stop {
+  background: rgba(255,69,69,0.15);
+  color: var(--red);
+  border: 1px solid rgba(255,69,69,0.3);
+}
+.btn-stop svg { width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2; }
+
+/* Pulse ring when tracking */
+.btn-go.tracking::before {
+  content:'';
+  position:absolute;
+  inset:-8px;
+  border-radius:50%;
+  border: 2px solid var(--accent);
+  opacity:0;
+  animation: pulse-ring 2s infinite;
+}
+@keyframes pulse-ring {
+  0% { transform:scale(0.9); opacity:0.8; }
+  100% { transform:scale(1.3); opacity:0; }
+}
+
+/* ─── HOME PAGE ──────────────────────────────────── */
+.streak-card {
+  background: linear-gradient(135deg, #1a1f0a 0%, #0f1a0a 100%);
+  border-color: rgba(200,245,55,0.15);
+  position: relative;
+  overflow: hidden;
+}
+.streak-card::before {
+  content:'';
+  position:absolute;
+  top:-60px; right:-60px;
+  width:160px; height:160px;
+  background: radial-gradient(circle, rgba(200,245,55,0.08) 0%, transparent 70%);
+}
+
+.streak-num {
+  font-size: 56px;
+  font-weight: 800;
+  color: var(--accent);
+  letter-spacing: -0.04em;
+  line-height: 1;
+  font-family: 'DM Mono', monospace;
+}
+.streak-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text2);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 0 16px 12px;
+}
+
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px;
+}
+.stat-card .val {
+  font-family: 'DM Mono', monospace;
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.stat-card .unit { font-size: 13px; color: var(--text2); }
+.stat-card .lbl {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 6px;
+}
+.stat-card.accent-card { border-color: rgba(200,245,55,0.2); }
+.stat-card.accent-card .val { color: var(--accent); }
+
+/* ─── HABITS ─────────────────────────────────────── */
+.habits-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 16px 12px;
+}
+
+.habit-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.habit-item::before {
+  content:'';
+  position:absolute;
+  left:0; top:0; bottom:0;
+  width: 3px;
+  background: var(--accent);
+  transform: scaleY(0);
+  transition: transform 0.25s;
+  border-radius: 0 2px 2px 0;
+}
+.habit-item.done { border-color: rgba(200,245,55,0.2); background: rgba(200,245,55,0.04); }
+.habit-item.done::before { transform: scaleY(1); }
+
+.habit-icon {
+  width: 40px; height: 40px;
+  border-radius: 12px;
+  background: var(--surface2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+.habit-item.done .habit-icon { background: rgba(200,245,55,0.1); }
+
+.habit-name {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.habit-item.done .habit-name { color: var(--text2); }
+
+.habit-check {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  display: flex; align-items:center; justify-content:center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+.habit-item.done .habit-check {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.habit-check svg { width:12px;height:12px;stroke:#000;stroke-width:3;display:none; }
+.habit-item.done .habit-check svg { display:block; }
+
+.date-strip {
+  display: flex;
+  gap: 8px;
+  padding: 0 16px;
+  margin-bottom: 16px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.date-strip::-webkit-scrollbar { display:none; }
+.day-dot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.day-dot .d-label { font-size: 10px; color: var(--text3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+.day-dot .d-circle {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  display: flex; align-items:center; justify-content:center;
+  font-size: 11px; font-weight: 700; color: var(--text2);
+}
+.day-dot.today .d-circle { border-color: var(--accent); color: var(--accent); }
+.day-dot.done .d-circle { background: var(--accent); color: #000; border-color: var(--accent); }
+
+/* ─── QUICK LOG ──────────────────────────────────── */
+.log-section { margin: 0 16px 12px; }
+.log-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 10px;
+}
+.emoji-row {
+  display: flex;
+  gap: 8px;
+}
+.emoji-btn {
+  flex: 1;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 4px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s;
+}
+.emoji-btn .e { font-size: 22px; }
+.emoji-btn .e-label { font-size: 9px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; }
+.emoji-btn.selected { border-color: var(--accent); background: rgba(200,245,55,0.06); }
+.emoji-btn.selected .e-label { color: var(--accent); }
+
+/* ─── HISTORY ────────────────────────────────────── */
+.history-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 18px;
+  margin: 0 16px 10px;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.history-item::after {
+  content:'';
+  position:absolute;
+  left:0; top:0; bottom:0;
+  width:3px;
+  background: var(--accent);
+  border-radius:0 2px 2px 0;
+}
+
+.hist-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; }
+.hist-date { font-size: 11px; font-weight:600; color:var(--text2); text-transform:uppercase; letter-spacing:0.08em; }
+.hist-dist { font-family:'DM Mono',monospace; font-size:24px; font-weight:500; color:var(--accent); letter-spacing:-0.02em; }
+.hist-dist span { font-size:12px; color:var(--text2); }
+
+.hist-stats { display:flex; gap:20px; }
+.hist-stat { display:flex; flex-direction:column; gap:2px; }
+.hist-stat .hv { font-family:'DM Mono',monospace; font-size:13px; font-weight:500; }
+.hist-stat .hl { font-size:9px; color:var(--text3); text-transform:uppercase; letter-spacing:0.08em; }
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: var(--text3);
+  gap: 12px;
+}
+.empty-state svg { width:48px;height:48px;stroke:var(--text3);fill:none;stroke-width:1.2; opacity:0.5; }
+.empty-state p { font-size:14px; font-weight:500; letter-spacing:0.02em; }
+
+/* ─── MINI MAP in history ────────────────────────── */
+.hist-map {
+  width: 100%;
+  height: 100px;
+  border-radius: 10px;
+  background: var(--surface2);
+  margin-top: 12px;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ─── TOAST ──────────────────────────────────────── */
+#toast {
+  position: fixed;
+  top: calc(var(--safe-top) + 16px);
+  left: 50%;
+  transform: translateX(-50%) translateY(-20px);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 10px 20px;
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 600;
+  z-index: 9999;
+  opacity: 0;
+  transition: all 0.3s;
+  white-space: nowrap;
+  pointer-events: none;
+}
+#toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+/* ─── SECTION LABEL ──────────────────────────────── */
+.section-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 0 20px 10px;
+}
+
+/* ─── PROGRESS BAR ───────────────────────────────── */
+.prog-bar {
+  height: 4px;
+  background: var(--surface2);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 10px;
+}
+.prog-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+/* ─── WEEK CHART ─────────────────────────────────── */
+.week-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 60px;
+  margin-top: 12px;
+}
+.bar-wrap { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; height:100%; }
+.bar-track { flex:1; width:100%; background:var(--surface2); border-radius:4px; display:flex; align-items:flex-end; overflow:hidden; }
+.bar-fill { width:100%; background:var(--accent); border-radius:4px; transition:height 0.5s ease; min-height:0; }
+.bar-day { font-size:9px; color:var(--text3); font-weight:600; text-transform:uppercase; }
+.bar-wrap.today .bar-fill { background: var(--accent); box-shadow: 0 0 8px rgba(200,245,55,0.4); }
+.bar-wrap.today .bar-day { color: var(--accent); }
+
+/* ─── LOCATION INDICATOR ─────────────────────────── */
+.loc-dot {
+  width:14px; height:14px;
+  border-radius:50%;
+  background:var(--accent);
+  box-shadow: 0 0 0 3px rgba(200,245,55,0.3), 0 0 0 6px rgba(200,245,55,0.1);
+  animation: loc-pulse 2s infinite;
+}
+@keyframes loc-pulse {
+  0%,100% { box-shadow: 0 0 0 3px rgba(200,245,55,0.3), 0 0 0 6px rgba(200,245,55,0.1); }
+  50% { box-shadow: 0 0 0 5px rgba(200,245,55,0.2), 0 0 0 10px rgba(200,245,55,0.05); }
+}
+
+/* ─── SLIDE IN ───────────────────────────────────── */
+@keyframes slide-up {
+  from { transform: translateY(12px); opacity:0; }
+  to { transform: translateY(0); opacity:1; }
+}
+.page.active > * { animation: slide-up 0.3s ease both; }
+.page.active > *:nth-child(2) { animation-delay:0.04s; }
+.page.active > *:nth-child(3) { animation-delay:0.08s; }
+.page.active > *:nth-child(4) { animation-delay:0.12s; }
+.page.active > *:nth-child(5) { animation-delay:0.16s; }
+.page.active > *:nth-child(6) { animation-delay:0.20s; }
+
+/* Habit check animation */
+@keyframes check-pop {
+  0% { transform:scale(1); }
+  40% { transform:scale(1.15); }
+  100% { transform:scale(1); }
+}
+.habit-item.done { animation: check-pop 0.25s ease; }
+
+/* ─── GPS STATUS ──────────────────────────────────── */
+#gps-status {
+  position: absolute;
+  top: 16px; right: 16px;
+  z-index: 501;
+  background: rgba(8,8,8,0.85);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text2);
+  letter-spacing: 0.06em;
+}
+#gps-dot {
+  width: 7px; height:7px;
+  border-radius: 50%;
+  background: var(--text3);
+}
+#gps-dot.active { background: var(--accent); animation: loc-pulse 2s infinite; }
+#gps-dot.searching { background: var(--orange); animation: loc-pulse 1s infinite; }
+
+/* ─── SCROLL FIX ─────────────────────────────────── */
+.scroll-area { overflow-y:auto; -webkit-overflow-scrolling:touch; }
+
+/* Smooth tab switch */
+.page { opacity:0; transition:opacity 0.2s; }
+.page.active { opacity:1; }
+
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ═══ TRACK PAGE ═══ -->
+  <div id="page-track" class="page active">
+    <div id="map-container">
+      <div id="map"></div>
+      <div id="hud">
+        <div id="stats-bar">
+          <div class="stat-cell">
+            <div class="stat-val" id="hud-dist">0.00</div>
+            <div class="stat-lbl">KM</div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-val" id="hud-time">00:00</div>
+            <div class="stat-lbl">Time</div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-val" id="hud-pace">—</div>
+            <div class="stat-lbl">Pace</div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-val" id="hud-spd">0.0</div>
+            <div class="stat-lbl">km/h</div>
+          </div>
+        </div>
+      </div>
+      <div id="gps-status">
+        <div id="gps-dot"></div>
+        <span id="gps-label">GPS Off</span>
+      </div>
+    </div>
+
+    <div id="controls-panel">
+      <div id="session-status">Ready to move</div>
+      <div class="controls-row">
+        <button class="btn-main btn-pause" id="btn-pause" style="display:none" onclick="pauseSession()">
+          <svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+        </button>
+        <button class="btn-main btn-go" id="btn-go" onclick="startSession()">
+          <svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
+        </button>
+        <button class="btn-main btn-stop" id="btn-stop" style="display:none" onclick="stopSession()">
+          <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ HOME PAGE ═══ -->
+  <div id="page-home" class="page">
+    <div class="page-header">
+      <div class="page-title">Today</div>
+      <div class="page-sub" id="home-date">—</div>
+    </div>
+
+    <!-- Streak -->
+    <div class="card streak-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div class="streak-num" id="streak-num">0</div>
+          <div class="streak-label">Day Streak 🔥</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-family:'DM Mono',monospace;font-size:20px;font-weight:500;color:var(--text)" id="total-km">0</div>
+          <div style="font-size:11px;color:var(--text2);letter-spacing:0.06em;text-transform:uppercase">Total km</div>
+        </div>
+      </div>
+      <div class="week-chart" id="week-chart"></div>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+      <div class="stat-card accent-card">
+        <div class="val"><span id="weekly-km">0.0</span><span class="unit"> km</span></div>
+        <div class="lbl">This week</div>
+      </div>
+      <div class="stat-card">
+        <div class="val"><span id="total-runs">0</span></div>
+        <div class="lbl">Sessions</div>
+      </div>
+      <div class="stat-card">
+        <div class="val"><span id="best-km">0.0</span><span class="unit"> km</span></div>
+        <div class="lbl">Best run</div>
+      </div>
+      <div class="stat-card">
+        <div class="val"><span id="active-days">0</span></div>
+        <div class="lbl">Active days</div>
+      </div>
+    </div>
+
+    <!-- Quick Log -->
+    <div class="section-label">Quick Log</div>
+
+    <div class="log-section">
+      <div class="log-title">Mood</div>
+      <div class="emoji-row" id="mood-row">
+        <button class="emoji-btn" data-group="mood" data-val="1" onclick="logQuick('mood',1,this)"><div class="e">😞</div><div class="e-label">Low</div></button>
+        <button class="emoji-btn" data-group="mood" data-val="2" onclick="logQuick('mood',2,this)"><div class="e">😐</div><div class="e-label">Meh</div></button>
+        <button class="emoji-btn" data-group="mood" data-val="3" onclick="logQuick('mood',3,this)"><div class="e">🙂</div><div class="e-label">Good</div></button>
+        <button class="emoji-btn" data-group="mood" data-val="4" onclick="logQuick('mood',4,this)"><div class="e">😁</div><div class="e-label">Great</div></button>
+      </div>
+    </div>
+
+    <div class="log-section">
+      <div class="log-title">Energy</div>
+      <div class="emoji-row">
+        <button class="emoji-btn" data-group="energy" data-val="1" onclick="logQuick('energy',1,this)"><div class="e">🪫</div><div class="e-label">Dead</div></button>
+        <button class="emoji-btn" data-group="energy" data-val="2" onclick="logQuick('energy',2,this)"><div class="e">😴</div><div class="e-label">Low</div></button>
+        <button class="emoji-btn" data-group="energy" data-val="3" onclick="logQuick('energy',3,this)"><div class="e">⚡</div><div class="e-label">Good</div></button>
+        <button class="emoji-btn" data-group="energy" data-val="4" onclick="logQuick('energy',4,this)"><div class="e">🔥</div><div class="e-label">Fired</div></button>
+      </div>
+    </div>
+
+    <div class="log-section">
+      <div class="log-title">Body / Pain</div>
+      <div class="emoji-row">
+        <button class="emoji-btn" data-group="pain" data-val="3" onclick="logQuick('pain',3,this)"><div class="e">✅</div><div class="e-label">None</div></button>
+        <button class="emoji-btn" data-group="pain" data-val="2" onclick="logQuick('pain',2,this)"><div class="e">😬</div><div class="e-label">Mild</div></button>
+        <button class="emoji-btn" data-group="pain" data-val="1" onclick="logQuick('pain',1,this)"><div class="e">🤕</div><div class="e-label">Sore</div></button>
+      </div>
+    </div>
+
+    <div style="height:8px"></div>
+  </div>
+
+  <!-- ═══ HABITS PAGE ═══ -->
+  <div id="page-habits" class="page">
+    <div class="page-header">
+      <div class="page-title">Habits</div>
+      <div class="page-sub" id="habit-progress-label">0 / 6</div>
+    </div>
+
+    <!-- Day strip -->
+    <div class="date-strip" id="date-strip"></div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+        <div style="font-size:13px;font-weight:600;color:var(--text2)">Today's progress</div>
+        <div style="font-size:13px;font-weight:700;color:var(--accent)" id="habit-pct">0%</div>
+      </div>
+      <div class="prog-bar"><div class="prog-fill" id="habit-prog" style="width:0%"></div></div>
+    </div>
+
+    <div class="habits-list" id="habits-list"></div>
+    <div style="height:8px"></div>
+  </div>
+
+  <!-- ═══ HISTORY PAGE ═══ -->
+  <div id="page-history" class="page">
+    <div class="page-header">
+      <div class="page-title">History</div>
+      <div class="page-sub" id="hist-count">0 sessions</div>
+    </div>
+    <div id="history-list"></div>
+  </div>
+
+  <!-- ═══ NAV ═══ -->
+  <nav id="nav">
+    <button class="nav-btn" onclick="switchPage('track',this)" id="nav-track">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg>
+      Track
+    </button>
+    <button class="nav-btn" onclick="switchPage('home',this)" id="nav-home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Stats
+    </button>
+    <button class="nav-btn" onclick="switchPage('habits',this)" id="nav-habits">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      Habits
+    </button>
+    <button class="nav-btn" onclick="switchPage('history',this)" id="nav-history">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>
+      Log
+    </button>
+  </nav>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ─── DATA ────────────────────────────────────────────────────────
+const DB = {
+  get(k,d=null) { try { const v=localStorage.getItem('stride_'+k); return v!==null?JSON.parse(v):d; } catch(e){return d;} },
+  set(k,v) { try { localStorage.setItem('stride_'+k,JSON.stringify(v)); } catch(e){} }
+};
+
+const todayKey = () => new Date().toISOString().slice(0,10);
+
+// ─── HABITS CONFIG ───────────────────────────────────────────────
+const HABITS = [
+  { id:'walk', name:'Walk / Cardio', icon:'🏃' },
+  { id:'workout', name:'Workout', icon:'💪' },
+  { id:'stretch', name:'Stretch', icon:'🧘' },
+  { id:'protein', name:'Protein', icon:'🥩' },
+  { id:'water', name:'Water (2L+)', icon:'💧' },
+  { id:'sleep', name:'Sleep 7h+', icon:'😴' },
+];
+
+// ─── GPS TRACKING ────────────────────────────────────────────────
+let map, routeLine, locationMarker, watchId;
+let tracking = false, paused = false;
+let coords = [];
+let startTime, elapsed = 0, timerInterval;
+let currentSpeed = 0;
+
+function initMap() {
+  map = L.map('map', {
+    zoomControl: false,
+    attributionControl: false,
+    center: [51.505, -0.09],
+    zoom: 16
+  });
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19
+  }).addTo(map);
+
+  routeLine = L.polyline([], {
+    color: '#c8f537',
+    weight: 4,
+    opacity: 0.9,
+    lineJoin: 'round',
+    lineCap: 'round'
+  }).addTo(map);
+
+  // Try to center on user
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(pos => {
+      map.setView([pos.coords.latitude, pos.coords.longitude], 16);
+    });
+  }
+}
+
+function startSession() {
+  if (!navigator.geolocation) { showToast('GPS not available'); return; }
+
+  if (paused) {
+    // Resume
+    paused = false;
+    startTime = Date.now();
+    timerInterval = setInterval(updateTimer, 1000);
+    startWatch();
+    document.getElementById('btn-pause').querySelector('svg').innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+    document.getElementById('session-status').innerHTML = 'Session active · <span id="gps-inline">Tracking</span>';
+    document.getElementById('gps-dot').className = 'active';
+    document.getElementById('gps-label').textContent = 'Tracking';
+    document.getElementById('btn-go').style.display='none';
+    return;
+  }
+
+  // Fresh start
+  tracking = true;
+  paused = false;
+  coords = [];
+  elapsed = 0;
+  routeLine.setLatLngs([]);
+  startTime = Date.now();
+
+  document.getElementById('btn-go').classList.add('tracking');
+  document.getElementById('btn-pause').style.display='flex';
+  document.getElementById('btn-stop').style.display='flex';
+  document.getElementById('btn-go').style.display='none';
+  document.getElementById('session-status').innerHTML = 'Session active · <span>Tracking</span>';
+  document.getElementById('gps-dot').className = 'searching';
+  document.getElementById('gps-label').textContent = 'Searching…';
+
+  timerInterval = setInterval(updateTimer, 1000);
+  startWatch();
+}
+
+function startWatch() {
+  watchId = navigator.geolocation.watchPosition(onPosition, onGPSError, {
+    enableHighAccuracy: true,
+    maximumAge: 1000,
+    timeout: 10000
+  });
+}
+
+function onPosition(pos) {
+  const { latitude: lat, longitude: lng, speed } = pos.coords;
+  const pt = [lat, lng];
+
+  document.getElementById('gps-dot').className = 'active';
+  document.getElementById('gps-label').textContent = 'GPS';
+
+  if (tracking && !paused) {
+    coords.push(pt);
+    routeLine.setLatLngs(coords);
+    map.panTo(pt, { animate: true, duration: 0.5 });
+    currentSpeed = speed ? speed * 3.6 : estimateSpeed();
+    updateHUD();
+  }
+
+  // Update marker
+  if (locationMarker) {
+    locationMarker.setLatLng(pt);
+  } else {
+    locationMarker = L.marker(pt, {
+      icon: L.divIcon({
+        html: '<div class="loc-dot"></div>',
+        className: '',
+        iconSize: [14,14],
+        iconAnchor: [7,7]
+      })
+    }).addTo(map);
+  }
+
+  if (!tracking) map.setView(pt, 16);
+}
+
+function onGPSError(err) {
+  document.getElementById('gps-dot').className = 'searching';
+  document.getElementById('gps-label').textContent = 'Weak GPS';
+}
+
+function estimateSpeed() {
+  if (coords.length < 2) return 0;
+  const a = coords[coords.length-2];
+  const b = coords[coords.length-1];
+  const d = haversine(a[0],a[1],b[0],b[1]);
+  return d * 3600; // km/h (assuming 1s intervals)
+}
+
+function pauseSession() {
+  if (!paused) {
+    paused = true;
+    elapsed += Date.now() - startTime;
+    clearInterval(timerInterval);
+    if (watchId) navigator.geolocation.clearWatch(watchId);
+    // Change icon to play
+    document.getElementById('btn-pause').querySelector('svg').innerHTML = '<polygon points="5,3 19,12 5,21"/>';
+    document.getElementById('btn-go').style.display='none';
+    document.getElementById('session-status').innerHTML = '<span>Paused</span>';
+    document.getElementById('gps-dot').className = '';
+    document.getElementById('gps-label').textContent = 'Paused';
+  } else {
+    startSession();
+  }
+}
+
+function stopSession() {
+  if (coords.length < 2) { showToast('Move a bit first!'); resetSession(); return; }
+
+  tracking = false;
+  paused = false;
+  elapsed += paused ? 0 : (Date.now() - startTime);
+  clearInterval(timerInterval);
+  if (watchId) navigator.geolocation.clearWatch(watchId);
+
+  const dist = totalDistance();
+  const session = {
+    id: Date.now(),
+    date: new Date().toISOString(),
+    coords: coords,
+    distance: dist,
+    duration: elapsed,
+    avgPace: dist > 0 ? (elapsed/60000)/dist : 0
+  };
+
+  const sessions = DB.get('sessions', []);
+  sessions.unshift(session);
+  DB.set('sessions', sessions);
+
+  showToast(`Saved · ${dist.toFixed(2)} km`);
+  updateHomeStats();
+  renderHistory();
+  resetSession();
+}
+
+function resetSession() {
+  tracking = false; paused = false; elapsed = 0; coords = [];
+  clearInterval(timerInterval);
+  if (watchId) navigator.geolocation.clearWatch(watchId);
+  routeLine.setLatLngs([]);
+
+  document.getElementById('btn-go').style.display='flex';
+  document.getElementById('btn-go').classList.remove('tracking');
+  document.getElementById('btn-pause').style.display='none';
+  document.getElementById('btn-stop').style.display='none';
+  document.getElementById('session-status').textContent = 'Ready to move';
+  document.getElementById('gps-dot').className = '';
+  document.getElementById('gps-label').textContent = 'GPS Off';
+  document.getElementById('hud-dist').textContent = '0.00';
+  document.getElementById('hud-time').textContent = '00:00';
+  document.getElementById('hud-pace').textContent = '—';
+  document.getElementById('hud-spd').textContent = '0.0';
+}
+
+function updateTimer() {
+  const total = elapsed + (Date.now() - startTime);
+  const s = Math.floor(total/1000);
+  const m = Math.floor(s/60);
+  const h = Math.floor(m/60);
+  const fmt = h > 0
+    ? `${h}:${String(m%60).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`
+    : `${String(m).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+  document.getElementById('hud-time').textContent = fmt;
+}
+
+function updateHUD() {
+  const dist = totalDistance();
+  const total = elapsed + (Date.now() - startTime);
+  document.getElementById('hud-dist').textContent = dist.toFixed(2);
+  const paceMin = dist > 0 ? (total/60000)/dist : 0;
+  const pm = Math.floor(paceMin);
+  const ps = Math.round((paceMin-pm)*60);
+  document.getElementById('hud-pace').textContent = dist > 0.01 ? `${pm}:${String(ps).padStart(2,'0')}` : '—';
+  document.getElementById('hud-spd').textContent = currentSpeed.toFixed(1);
+}
+
+function totalDistance() {
+  let d = 0;
+  for (let i=1;i<coords.length;i++) d += haversine(coords[i-1][0],coords[i-1][1],coords[i][0],coords[i][1]);
+  return d;
+}
+
+function haversine(lat1,lon1,lat2,lon2) {
+  const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLon=(lon2-lon1)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+// ─── HABITS ─────────────────────────────────────────────────────
+function renderHabits() {
+  const today = todayKey();
+  const done = DB.get('habits_'+today, {});
+  const list = document.getElementById('habits-list');
+  const count = Object.values(done).filter(Boolean).length;
+
+  list.innerHTML = HABITS.map(h => `
+    <div class="habit-item ${done[h.id]?'done':''}" onclick="toggleHabit('${h.id}')">
+      <div class="habit-icon">${h.icon}</div>
+      <div class="habit-name">${h.name}</div>
+      <div class="habit-check">
+        <svg viewBox="0 0 12 12"><polyline points="1.5,6 5,9.5 10.5,2.5"/></svg>
+      </div>
+    </div>
+  `).join('');
+
+  document.getElementById('habit-progress-label').textContent = `${count} / ${HABITS.length}`;
+  document.getElementById('habit-pct').textContent = Math.round(count/HABITS.length*100)+'%';
+  document.getElementById('habit-prog').style.width = (count/HABITS.length*100)+'%';
+  renderDateStrip();
+}
+
+function toggleHabit(id) {
+  const today = todayKey();
+  const done = DB.get('habits_'+today, {});
+  done[id] = !done[id];
+  DB.set('habits_'+today, done);
+  if (done[id]) {
+    // Check streak update
+    updateStreak();
+  }
+  renderHabits();
+  updateHomeStats();
+  if (navigator.vibrate) navigator.vibrate(done[id] ? [10,5,10] : [5]);
+}
+
+function renderDateStrip() {
+  const strip = document.getElementById('date-strip');
+  const days = ['S','M','T','W','T','F','S'];
+  const today = new Date();
+  let html = '';
+  for (let i=6;i>=0;i--) {
+    const d = new Date(today); d.setDate(today.getDate()-i);
+    const key = d.toISOString().slice(0,10);
+    const done = DB.get('habits_'+key, {});
+    const allDone = Object.values(done).filter(Boolean).length >= HABITS.length;
+    const isToday = i===0;
+    html += `<div class="day-dot ${isToday?'today':''} ${allDone&&!isToday?'done':''}">
+      <div class="d-label">${days[d.getDay()]}</div>
+      <div class="d-circle">${d.getDate()}</div>
+    </div>`;
+  }
+  strip.innerHTML = html;
+}
+
+function updateStreak() {
+  let streak = 0;
+  const today = new Date();
+  for (let i=0;i<365;i++) {
+    const d = new Date(today); d.setDate(today.getDate()-i);
+    const key = d.toISOString().slice(0,10);
+    const done = DB.get('habits_'+key, {});
+    const count = Object.values(done).filter(Boolean).length;
+    if (count > 0 || i===0) streak++;
+    else break;
+  }
+  DB.set('streak', streak);
+  return streak;
+}
+
+// ─── QUICK LOG ───────────────────────────────────────────────────
+function logQuick(group, val, el) {
+  const today = todayKey();
+  const logs = DB.get('quicklog_'+today, {});
+  logs[group] = val;
+  DB.set('quicklog_'+today, logs);
+  document.querySelectorAll(`[data-group="${group}"]`).forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  showToast('Logged ✓');
+}
+
+function loadTodayLog() {
+  const today = todayKey();
+  const logs = DB.get('quicklog_'+today, {});
+  for (const [group, val] of Object.entries(logs)) {
+    const btn = document.querySelector(`[data-group="${group}"][data-val="${val}"]`);
+    if (btn) btn.classList.add('selected');
+  }
+}
+
+// ─── HISTORY ────────────────────────────────────────────────────
+function renderHistory() {
+  const sessions = DB.get('sessions', []);
+  const list = document.getElementById('history-list');
+  document.getElementById('hist-count').textContent = `${sessions.length} session${sessions.length!==1?'s':''}`;
+
+  if (!sessions.length) {
+    list.innerHTML = `<div class="empty-state">
+      <svg viewBox="0 0 24 24"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>
+      <p>No sessions yet</p>
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = sessions.map(s => {
+    const d = new Date(s.date);
+    const dateStr = d.toLocaleDateString('en', {weekday:'short',month:'short',day:'numeric'});
+    const dur = formatDuration(s.duration);
+    const pace = s.avgPace > 0 ? `${Math.floor(s.avgPace)}:${String(Math.round((s.avgPace%1)*60)).padStart(2,'0')}` : '—';
+    return `<div class="history-item">
+      <div class="hist-top">
+        <div class="hist-date">${dateStr}</div>
+        <div class="hist-dist">${s.distance.toFixed(2)}<span> km</span></div>
+      </div>
+      <div class="hist-stats">
+        <div class="hist-stat"><div class="hv">${dur}</div><div class="hl">Time</div></div>
+        <div class="hist-stat"><div class="hv">${pace} /km</div><div class="hl">Pace</div></div>
+        <div class="hist-stat"><div class="hv">${s.coords.length}</div><div class="hl">Points</div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function formatDuration(ms) {
+  const s = Math.floor(ms/1000);
+  const m = Math.floor(s/60);
+  const h = Math.floor(m/60);
+  return h > 0 ? `${h}h ${m%60}m` : `${m}m ${s%60}s`;
+}
+
+// ─── HOME STATS ──────────────────────────────────────────────────
+function updateHomeStats() {
+  const sessions = DB.get('sessions', []);
+  const now = new Date();
+  const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay());
+  weekStart.setHours(0,0,0,0);
+
+  let weekDist=0, totalDist=0, best=0;
+  const activeDays = new Set();
+  const weekByDay = Array(7).fill(0);
+
+  for (const s of sessions) {
+    const d = new Date(s.date);
+    totalDist += s.distance;
+    if (s.distance > best) best = s.distance;
+    activeDays.add(d.toISOString().slice(0,10));
+    if (d >= weekStart) {
+      weekDist += s.distance;
+      weekByDay[d.getDay()] += s.distance;
+    }
+  }
+
+  const streak = updateStreak();
+
+  document.getElementById('streak-num').textContent = streak;
+  document.getElementById('total-km').textContent = totalDist.toFixed(1);
+  document.getElementById('weekly-km').textContent = weekDist.toFixed(1);
+  document.getElementById('total-runs').textContent = sessions.length;
+  document.getElementById('best-km').textContent = best.toFixed(1);
+  document.getElementById('active-days').textContent = activeDays.size;
+
+  // Week chart
+  const maxD = Math.max(...weekByDay, 1);
+  const days = ['S','M','T','W','T','F','S'];
+  const todayDow = now.getDay();
+  document.getElementById('week-chart').innerHTML = weekByDay.map((v,i) => `
+    <div class="bar-wrap ${i===todayDow?'today':''}">
+      <div class="bar-track"><div class="bar-fill" style="height:${(v/maxD*100)}%"></div></div>
+      <div class="bar-day">${days[i]}</div>
+    </div>
+  `).join('');
+
+  document.getElementById('home-date').textContent = now.toLocaleDateString('en',{month:'short',day:'numeric'});
+}
+
+// ─── NAVIGATION ──────────────────────────────────────────────────
+function switchPage(name, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  btn.classList.add('active');
+
+  if (name==='home') { updateHomeStats(); loadTodayLog(); }
+  if (name==='habits') renderHabits();
+  if (name==='history') renderHistory();
+  if (name==='track') { setTimeout(()=>map && map.invalidateSize(), 100); }
+}
+
+// ─── TOAST ───────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ─── INIT ────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  initMap();
+  document.getElementById('nav-track').classList.add('active');
+  updateHomeStats();
+  loadTodayLog();
+
+  // Try to get location immediately for map centering
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(pos => {
+      map.setView([pos.coords.latitude, pos.coords.longitude], 16);
+      document.getElementById('gps-dot').className = 'active';
+      document.getElementById('gps-label').textContent = 'Ready';
+    }, null, { enableHighAccuracy: true });
+  }
+});
+
+// PWA Service Worker registration
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    // Inline SW via blob
+    const swCode = `
+const CACHE = 'stride-v1';
+const ASSETS = [location.href];
+self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS))); });
+self.addEventListener('fetch', e => { e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request))); });
+    `;
+    const blob = new Blob([swCode], {type:'application/javascript'});
+    const url = URL.createObjectURL(blob);
+    navigator.serviceWorker.register(url).catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
